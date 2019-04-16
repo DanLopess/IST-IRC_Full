@@ -1,0 +1,25 @@
+(0,0) - PLAYERS> Player2; FOOD> 50; TRAP> No; CENTER> No;\n
+(1,0) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(2,0) - PLAYERS> No player; FOOD> 10; TRAP> No; CENTER> Yes;\n
+(3,0) - PLAYERS> Player5, Player6; FOOD> 0; TRAP> No; CENTER> No;\n
+(4,0) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(0,1) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(1,1) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(2,1) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(3,1) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(4,1) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(0,2) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(1,2) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(2,3) - PLAYERS> Player42; FOOD> 0; TRAP> No; CENTER> No;\n
+(3,2) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(4,2) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(0,3) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(1,3) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(2,3) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(3,3) - PLAYERS> No player; FOOD> 0; TRAP> Yes; CENTER> No;\n
+(4,3) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(0,4) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> Yes;\n
+(1,4) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(2,4) - PLAYERS> No player; FOOD> 0; TRAP> No; CENTER> No;\n
+(3,4) - PLAYERS> Player34; FOOD> 0; TRAP> No; CENTER> No;\n
+(4,4) - PLAYERS> Player23; FOOD> 0; TRAP> No; CENTER> No;\n
