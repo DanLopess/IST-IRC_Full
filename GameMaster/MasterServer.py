@@ -94,7 +94,7 @@ def replace_data (filename, oldline, newline):
                     print(line.replace(oldline, newline), end='')
                     # replaces data in a given file
         else:
-            if not os.path.exists(PLAY):
+            if filename == PLAY and not os.path.exists(PLAY):
                 with open(filename, "w") as f:
                     f.write(newline)  # adds new data
             else:

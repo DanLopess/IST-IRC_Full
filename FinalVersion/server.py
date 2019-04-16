@@ -18,6 +18,14 @@ from server_module import *
 # Project source files: TODO
 # **************************************************************************************
 
+
+# TODO
+# create 3 functions: execute command master, score,player
+# each client is stored in a given array. 
+# if the message received is from one of the clients, checks if the client exists on the array
+# and if so, execute command specific to the type of client
+
+
 # ******************** generic functions ********************
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C. Leaving...')
@@ -26,6 +34,15 @@ def signal_handler(sig, frame):
         i.join()
     sys.exit(0)  # if multiple threads, must receive command twice
 
+
+def generate_save():
+    # creates game map
+    if not os.path.exists(MAP):
+        with open(MAP, "w") as fn:
+            for i in range(0, 5):
+                for f in range(0, 5):
+                    fn.write(
+                        str((i, f))+" ; PLAYERS: NULL; FOOD: 0; TRAP: False; CENTER: False;\n")
 
 # ************************* main ****************************
 #sockets initiation
