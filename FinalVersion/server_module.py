@@ -13,6 +13,11 @@ import threading
 #   "PLAYER_NAME ; ATT: 25 ; DEF: 25; EXP: 25; ENRGY: 10; COORDINATES: (x,y); WON: 0; LOST: 0\n"
 # **************************************************************************************
 
+# ************** socket communication parameters ******************
+bind_ip = '127.0.0.1'
+bind_port = 12345
+MSG_SIZE = 1024
+
 # ******************* constants definition ********************
 NULL = ''
 COMMAND = 0
@@ -42,11 +47,6 @@ LOST = 7
 VALUE_INDEX = 1
 # note: if some indexes were not defined, that means they're not used, 
 # i.e., there's no need to access the string via index
-
-# ************** socket communication parameters ******************
-bind_ip = '127.0.0.1'
-bind_port = 12345
-MSG_SIZE = 1024
 
 # ********************** possible messages ************************
 LOG = 'LOGIN'
