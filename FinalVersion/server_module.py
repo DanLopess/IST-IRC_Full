@@ -18,6 +18,11 @@ bind_ip = '127.0.0.1'
 bind_port = 12345
 MSG_SIZE = 1024
 
+# ************ MASTER CONSTANTS AND OTHER NEEDED VARIABLES *************
+# ************ PLAYER CONSTANTS AND OTHER NEEDED VARIABLES *************
+# ************ SCORE CONSTANTS AND OTHER NEEDED VARIABLES *************
+
+
 # ******************* constants definition ********************
 NULL = ''
 COMMAND = 0
@@ -50,9 +55,7 @@ VALUE_INDEX = 1
 
 # ********************** possible messages ************************
 LOG = 'LOGIN'
-PLACE_FOOD = 'PLACEF'
-PLACE_TRAP = 'PLACET'
-PLACE_CENTER = 'PLACEC'
+PLACE = 'PLACE'
 ADD_PLAYER = 'ADDP'
 SHOW_LOC = 'SHOW_LOCATION'
 ATT = 'ATTACK'

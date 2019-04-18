@@ -1,20 +1,35 @@
-#Alexandre Mota 90585
 import socket
 import sys
 import select
 
+# **************************************************************************************
+#
+#                             IRC PROJECT - PLAYER CLIENT
+#    AUTHORS - ALEXANDRE MOTA 90585, DANIEL LOPES 90590, DUARTE MATIAS 90596
+#
+# **************************************************************************************
 
-#sockets communication parameters
-SERVER_PORT = 12101
-SERVER_IP   = '127.0.0.1'
-MSG_SIZE = 1024
-PACKET_NUMBER = 1
+#constants definition
+IN = "LOGIN:PLAYER\n"
+OUT = "LOGOUT\n"
 
+TCP_IP = 'localhost'
+TCP_PORT = 12345
+BUFFER_SIZE = 4096
 
-client_sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+# create an ipv4 (AF_INET) socket object using the tcp protocol (SOCK_STREAM)
+client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# o select quer ficar a espera de ler o socket e ler do stdin (consola)
+# connect the client
+client_sock.connect((TCP_IP, TCP_PORT))
+
+#Tries to login
+client_msg = IN[:-1].encode()
+client_sock.send(client_msg)
+
+# select either for socket or stdin inputs
 inputs = [client_sock, sys.stdin]
+
 
 def player_creation():
     msg = sys.stdin.readline()
@@ -23,11 +38,10 @@ def player_creation():
     return msg
 
 
-
 #int main()----------------------------------------------------------------------------------------------------------------------------
 print('please create your character: <name>:<attack>:<defense>')
 creation_msg = player_creation()
-client_sock.sendto(creation_msg,(SERVER_IP,SERVER_PORT))
+client_sock.send(creation_msg)
 
 while True:
   try:
@@ -41,9 +55,7 @@ while True:
           user_msg = sys.stdin.readline()
           user_msg = "{}:".format(PACKET_NUMBER) + user_msg
           client_msg = user_msg.encode()
-          client_sock.sendto(client_msg,(SERVER_IP,SERVER_PORT))
-          client_sock.settimeout(1)
-          PACKET_NUMBER += 1
+          client_sock.send(client_msg)
 
       # i == sock - o servidor enviou uma mensagem para o socket
       elif i == client_sock:

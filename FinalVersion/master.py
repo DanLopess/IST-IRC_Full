@@ -6,13 +6,12 @@ import select
 # **************************************************************************************
 #
 #                             IRC PROJECT - GAME-MASTER CLIENT
-#                             AUTHOR - DANIEL LOPES 90590
-#
-# Project source files: server.py, client.py, server_modules.py, map.save, players.save
+#    AUTHORS - ALEXANDRE MOTA 90585, DANIEL LOPES 90590, DUARTE MATIAS 90596
+# 
 # **************************************************************************************
 
 #constants definition
-IN = "LOGIN\n"
+IN = "LOGIN:MASTER\n"
 OUT = "LOGOUT\n"
 
 TCP_IP = 'localhost'

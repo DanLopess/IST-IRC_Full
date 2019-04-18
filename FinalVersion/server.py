@@ -34,6 +34,37 @@ def signal_handler(sig, frame):
         i.join()
     sys.exit(0)  # if multiple threads, must receive command twice
 
+def handle_client_connection(client_socket, address):
+    # TODO
+    # in this function, check what type is a client from and executes the command correspondent to that client
+    logged = 0  # variable to check if client has already logged in
+    while True:
+        msg_from_client = client_socket.recv(MSG_SIZE)
+        request = msg_from_client.decode()
+
+        print('Received {} from {} , {}'.format(
+            request, address[IP], address[PORT]))
+
+        # Splits input message by its separation punctuation (:)
+        message = request.split(":")
+
+        if (len(message) == 1 and message[COMMAND] == LOG):  # LOGIN
+            if (logged == 0):
+                logged = 1
+                msg_to_client = OK + LOG_OK
+            elif (logged == 1):
+                msg_to_client = NOK + LOG_NOK
+        elif (len(message) == 1 and message[COMMAND] == LOGOUT):  # LOGOUT
+            break
+        else:
+            msg_to_client = execute_command(message, type)
+
+        client_socket.send(msg_to_client.encode())
+
+    # end of connection
+    client_socket.close()
+    active_users.remove(client_socket)
+    threads.remove(threading.current_thread())
 
 def generate_save():
     # creates game map
@@ -44,6 +75,55 @@ def generate_save():
                     fn.write(
                         str((i, f))+" ; PLAYERS: NULL; FOOD: 0; TRAP: False; CENTER: False;\n")
 
+def find_data(filename, data):
+    """
+    This function searches for the correspondent line of either a specific coordinate or player (data) \n
+        inputs: filename, data - can be either player_name or coordinates, filename - is either map or players\n
+        returns: string
+    """
+    rw.acquire_read()  # many threads can read, if none is writting
+    try:
+        with open(filename, "r") as f:
+            for line in f:
+                found_data = line.find(str(data))
+                if (found_data != -1):
+                    return line
+        return NULL
+    finally:
+        rw.release_read()
+
+def replace_data(filename, oldline, newline):
+    """
+    This function replaces an old line of a specific file with a new one \n
+        inputs: filename, oldline - contais the line to be replaced, newline - replacing line\n
+        returns: none
+    """
+    rw.acquire_write()  # only one thread a time can write to file
+    try:
+        if (oldline != NULL):
+            with fileinput.FileInput(filename, inplace=True, backup='.bak') as file:
+                for line in file:
+                    print(line.replace(oldline, newline), end='')
+                    # replaces data in a given file
+        else:
+            if filename == PLAY and not os.path.exists(PLAY):
+                with open(filename, "w") as f:
+                    f.write(newline)  # adds new data
+            else:
+                with open(filename, "a+") as f:
+                    #f.write('\n')
+                    f.write(newline)  # adds new data
+    finally:
+        rw.release_write()
+
+def execute_command(message, type):
+    pass
+# ******************** master functions ********************
+
+# ******************** player functions ********************
+
+# ******************** score functions ********************
+
 # ************************* main ****************************
 #sockets initiation
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -53,7 +133,11 @@ server.bind((bind_ip, bind_port))
 server.listen(5)  # max backlog of connections
 
 active_users = []
+masters = {}
+players = {}
+scores = {}
 threads = []
+
 # receive and handle sigint (ctrl+c)
 signal.signal(signal.SIGINT, signal_handler)
 rw = ReadWriteLock()  # lock for one writer and many readers of a file

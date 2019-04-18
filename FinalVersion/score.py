@@ -1,20 +1,42 @@
 import socket
 import threading
+import sys
 
-#-- GLOBAL VARIABLES
-#- SOCKETS
-SERVER_PORT = 57843
-BUFFER_SIZE = 1024
-SERVER_IP = '127.0.0.1'
+# **************************************************************************************
+#
+#                             IRC PROJECT - SCORE CLIENT
+#    AUTHORS - ALEXANDRE MOTA 90585, DANIEL LOPES 90590, DUARTE MATIAS 90596
+#
+# **************************************************************************************
+
+#constants definition
+IN = "LOGIN:SCORE\n"
+OUT = "LOGOUT\n"
+
+TCP_IP = 'localhost'
+TCP_PORT = 12345
+BUFFER_SIZE = 4096
+
+# create an ipv4 (AF_INET) socket object using the tcp protocol (SOCK_STREAM)
+client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# connect the client
+# client.connect((target, port))
+client_sock.connect((TCP_IP, TCP_PORT))
+
+#Tries to login
+client_msg = IN[:-1].encode()
+client_sock.send(client_msg)
+
+# select either for socket or stdin inputs
+inputs = [client_sock, sys.stdin]
 
 def handleRequest(msg):
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((SERVER_IP,SERVER_PORT))
     e_msg = msg.encode()
-    client_socket.send(e_msg)
+    client_sock.send(e_msg)
     full_msg = ""
     while True:
-        rcv_e_msg = client_socket.recv(BUFFER_SIZE)
+        rcv_e_msg = client_sock.recv(BUFFER_SIZE)
         rcv_msg = rcv_e_msg.decode()
         if(rcv_msg == ""):
             break
@@ -22,7 +44,7 @@ def handleRequest(msg):
 
     args = full_msg.split(":")
     print(args[2])    
-    client_socket.close()
+    client_sock.close()
 
 def craftCommand():
     command  = {1:"GET_STATS", 2:"GET_LOG", 3:"GET_COMBAT_SCORE", 4:"GET_MAP"}
