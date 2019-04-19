@@ -44,7 +44,6 @@ creation_msg = player_creation()
 client_sock.send(creation_msg)
 
 while True:
-  try:
     ins, outs, exs = select.select(inputs,[],[])
     #select devolve para a lista ins quem esta a espera de ler
 
@@ -53,18 +52,11 @@ while True:
       # i == sys.stdin - alguem escreveu na consola, vamos ler e enviar
       if i == sys.stdin:
           user_msg = sys.stdin.readline()
-          user_msg = "{}:".format(PACKET_NUMBER) + user_msg
           client_msg = user_msg.encode()
           client_sock.send(client_msg)
 
       # i == sock - o servidor enviou uma mensagem para o socket
       elif i == client_sock:
-          client_sock.settimeout(1)
-          (server_msg,addr) = client_sock.recvfrom(MSG_SIZE)
+          server_msg = client_sock.recv(BUFFER_SIZE)
           server_request = server_msg.decode()
           print("Message received from server:", server_request)
-          
-  except socket.timeout:
-    client_msg = user_msg.encode()
-    client_sock.sendto(client_msg,(SERVER_IP,SERVER_PORT))
-    client_sock.settimeout(1)

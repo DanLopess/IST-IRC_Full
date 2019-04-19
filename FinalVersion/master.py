@@ -34,7 +34,7 @@ inputs = [client_sock, sys.stdin]
 
 while True:
 	print('Input message to server: ')
-	ins, outs, exs = select.select(inputs,[],[])
+	ins, outs, exs = select.select(inputs, [], [])
 	#select assigns to list ins who is waiting to be read
 	for i in ins:
 		# i == sys.stdin - someone wrote on the commandline, let's read and send it to server
@@ -50,6 +50,6 @@ while True:
 
 		# i == sock - server sent a message to the socket
 		elif i == client_sock:
-				(server_msg, addr) = client_sock.recvfrom(BUFFER_SIZE)
+				server_msg = client_sock.recv(BUFFER_SIZE)
 				server_request = server_msg.decode()
 				print("Message received from server:", server_request)
