@@ -1,25 +1,48 @@
-
-import socket
-import random
-import sys
-import signal
-import time
+import threading
 
 
-#constants definition
+# **************************************************************************************
+#
+#                             IRC PROJECT - SERVER MODULE
+#    AUTHORS - ALEXANDRE MOTA 90585, DANIEL LOPES 90590, DUARTE MATIAS 90596
+#                                        
+#                                       NOTE:
+#   map structure: 
+#   "(0,0) ; PLAYERS: NULL; FOOD: 0; TRAP: False; CENTER: False;\n"
+#   players structure: 
+#   "PLAYER_NAME ; ATT: 25 ; DEF: 25; EXP: 25; ENRGY: 10; COORDINATES: (x,y); WON: 0; LOST: 0\n"
+# **************************************************************************************
+
+# ******************* constants definition ********************
 NULL = ''
-#sockets communication parameters
-SERVER_PORT = 12101
-MSG_SIZE = 1024
+COMMAND = 0
+IP = 0  # for identifying the ip address in address vector
+PORT = 1  # for identifying the port in address vector
+PLAY = "saves/players.save"
+MAP = "saves/map.save"
+TRP = "TRAP"
+FOO = "FOOD"
+CTR = "CENTER"
+MSTR = "MASTER"
+PLR = "PLAYER"
+SCR = "SCORE"
 
+# ***************** score specific constants *****************
+LOGS = "logs1.info"
+PLAYERS = "stats1.info"
+COMBAT = "cmbt1.info"
+#- MESSAGE CODES
+ANSWER_CODES = {
+    'GET_STATS': "1",
+    'GET_LOG': "2",
+    'GET_COMBAT_SCORE': "3",
+    'GET_MAP': "4"
+}
+
+#****************** player specific constants ******************
 #message info
-PACKET_NUMBER = 0 
 TYPE = 1
 USER_ID = 2
-
-#return codes
-OK          = 'OK: '
-NOT_OK      = 'ERROR: '
 
 #return sub-codes
 REG_OK      = 'client successfully registered'
@@ -42,18 +65,110 @@ RIGHT = (1, 0)
 #MAP----------------------------------------------------------------------------------------------------------------------------------------------------
 ROWS = 5
 COLUMNS = 5
-#signal handler -----------------------------------------------------------------------------------------------------------------------
-def quit(sig, frame):
-    server_sock.close()
-    sys.exit(0)
 
-signal.signal(signal.SIGINT, quit)
+#***************** master specific constants ******************
 
-def outOfTime(sig, frame):
-    server_sock.close()
-    sys.exit(0)
+#location of certain strings in save files 
+#ex: in map lines structure, when split, players names will be at index 1
 
-signal.signal(signal.SIGALRM, outOfTime)
+# map.save :
+PLAYERS = 1
+FOOD = 2
+# players.save :
+ATTACK = 1
+DEF = 2
+EXP = 3
+ENRGY = 4
+COORDINATES = 5
+WON = 6
+LOST = 7
+# when splitting "FOOD: x" (example) , x is always at same index 1
+VALUE_INDEX = 1
+# note: if some indexes were not defined, that means they're not used, 
+# i.e., there's no need to access the string via index
+
+# ********************** possible messages ************************
+LOG = 'LOGIN'
+PLACE = 'PLACE'
+ADD_PLAYER = 'ADDP'
+SHOW_LOC = 'SHOW_LOCATION'
+ATT = 'ATTACK'
+EAT = 'EAT'
+PRACT = 'PRACTICE'
+LOGOUT = 'LOGOUT'  
+
+# ************************** return codes **************************
+OK = 'OK: '
+NOK = 'NOK: '
+
+#************************ return sub-codes *************************
+LOG_OK = ' login successful'
+PLACE_OK = ' placed successfully'
+LOCATION_OK = 'location has' 
+ATT_OK = ' attacked successfully'
+EAT_OK = ' ate successfully'
+PRACT_OK = ' practiced successfully'
+TRAP_OK = ' fell into trap'
+ADD_OK = ' player added successfully' 
+
+LOG_NOK = ' failed to login'
+PLACE_NOK = ' could not be placed'
+ATT_NOK = ' attack failed'
+EAT_NOK = ' could not eat'
+PRACT_NOK = ' could not practice'
+TRAP_NOK = ' could not be trapped'
+INV_MSG = ' invalid message type'
+INV_PLAYER = ' no such player'
+ADD_NOK = ' failed to add player'
+
+# **************************** classes ******************************
+class ReadWriteLock:
+    """ A lock object that allows many simultaneous "read locks", but
+    only one "write lock." """
+
+    def __init__(self):
+        self._read_ready = threading.Condition(threading.Lock())
+        self._readers = 0
+
+    def acquire_read(self):
+        """ Acquire a read lock. Blocks only if a thread has
+        acquired the write lock. """
+        self._read_ready.acquire()
+        try:
+            self._readers += 1
+        finally:
+            self._read_ready.release()
+
+    def release_read(self):
+        """ Release a read lock. """
+        self._read_ready.acquire()
+        try:
+            self._readers -= 1
+            if not self._readers:
+                self._read_ready.notifyAll()
+        finally:
+            self._read_ready.release()
+
+    def acquire_write(self):
+        """ Acquire a write lock. Blocks until there are no
+        acquired read or write locks. """
+        self._read_ready.acquire()
+        while self._readers > 0:
+            self._read_ready.wait()
+
+    def release_write(self):
+        """ Release a write lock. """
+        self._read_ready.release()
+
+
+
+# global locks
+rw_map = ReadWriteLock()  # lock for one writer and many readers of a file
+rw_players = ReadWriteLock()  # lock for one writer and many readers of a file
+rw_logs = ReadWriteLock()  # lock for one writer and many readers of a file
+rw_combats = ReadWriteLock()  # lock for one writer and many readers of a file
+usr_lock = threading.Lock() # lock for user actions
+
 #--------------------------------------------------------------------------------------------------------------------------------------
 class Tile:
     def __init__(self, x, y, trap, food, tc):
@@ -139,14 +254,10 @@ class Player:
         self._experience = 1
         self._attrPoints = 50
         self._energy = 10
-        self._lastPacket = 0
-
-    def isDuplicateMsg(self, packetNo):
-        return self._lastPacket == packetNo
+        
 
     def Move(self, direction): #(str direction)
         direction = direction.upper()
-        self._lastPacket += 1
 
         if direction == "UP\n" and self._Ycoord < 4:
             dir = UP
@@ -165,7 +276,6 @@ class Player:
         return "character moved to ({}, {}) succesfully".format(self._Xcoord, self._Ycoord)
 
     def Train(self, attr):
-        self._lastPacket += 1
         attr = attr.upper()
         if(self._energy > 0):
             if attr == "ATTACK\n":
@@ -189,13 +299,11 @@ class Player:
         self._experience -= 1
 
     def Eat(self):
-        self._lastPacket += 1
         if(self._energy < 10):
             self._energy += 1
         return "Yummy"
 
     def Attack(self, target):
-        self._lastPacket += 1
         target.Die()
         return "you killed {}".format(target._username)
 
@@ -218,147 +326,3 @@ class Player:
         return self._addr
 
 #player client END------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-#generic functions
-
-def find_client (addr, active_users):
-    for key, val in list(active_users.items()):
-        if val == addr:
-            return key
-    return NULL
-
-#message handling functions
-def register_client(msg_request, addr, active_users):
-    #msg_request[1] = name; msg_request[2] attack; msg_request[3] = defense
-    name = msg_request[USER_ID]
-    msg_reply = OK + REG_OK + "\n"
-    
-    # delete existing users
-    if name in active_users:
-        active_users.pop(name)
-        msg_reply = OK + REG_UPDATED + "\n"
-    dst_name = find_client(addr, active_users)
-    
-    if (dst_name != NULL):
-        active_users.pop(dst_name)
-        msg_reply = OK + REG_UPDATED + "\n"
-    
-    # register the user
-    active_users[name] = addr
-    newPlayer = Player(name, addr)
-    player_characters[addr] = newPlayer
-    newPlayer.Lvlup(int(msg_request[USER_ID + 1]), int(msg_request[USER_ID + 2]))
-
-    msg_reply += newPlayer.GetPlayerLocation()
-    server_msg = msg_reply.encode()
-    return(server_msg)
-
-def invalid_msg(msg_request):
-    respond_msg = "INVALID MESSAGE\n"
-    msg_reply = NOT_OK + msg_request[TYPE] + ' ' + INV_MSG + "\n"
-    server_msg = msg_reply.encode()
-    return server_msg
-
-#checks if the file is a duplicate
-def checkForDup(player, packetNo):
-    return player.isDuplicateMsg(packetNo)
-
-#int main(int argc,char** argv) code--------------------------------------------------------------------------------------------------------------------
-
-table = Game_map("map.save")
-
-active_users = {} #dict: key: user_name; val:user_address info: example:'maria'= ('127.0.0.1',17234)
-player_characters = {} #dict: key: addr; val: character object reference
-player_timer = {}
-
-server_sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-server_sock.bind(('', SERVER_PORT))
-first = False
-
-while True:
-    (client_msg, client_addr) = server_sock.recvfrom(MSG_SIZE)
-    msg_request = client_msg.decode().split(':')
-    request_type = msg_request[TYPE].upper().rstrip()
-
-
-    if request_type == "CREATE":
-        server_msg = register_client(msg_request, client_addr, active_users)
-        server_sock.sendto(server_msg, client_addr)
-        table.updatePC()
-        continue
-
-    player = player_characters[client_addr]
-    if checkForDup(player, server_msg[0]):
-        continue
-    
-    elif request_type == "KILLSERVER":
-        break
-    
-    elif request_type == "MOVE":
-        server_msg = player.Move(msg_request[TYPE + 1])
-        loc = table.getLoc(player._Xcoord, player._Ycoord)
-        if(table.isTrap(loc)):
-            player.Trapped()
-            server_msg += " ({} was caught in a trap".format(player._username)
-        server_msg = server_msg.encode()
-
-    elif request_type == "EAT":
-        loc = table.getLoc(player._Xcoord, player._Ycoord)
-        if(table._grid[loc].getFood() > 0):
-            server_msg = player.Eat()
-        else:
-            server_msg = NO_FOOD
-        server_msg = server_msg.encode()
-
-    elif request_type == "TRAIN":
-        loc = table.getLoc(player._Xcoord, player._Ycoord)
-        if table.isTC(loc):
-            server_msg = player.Train(msg_request[TYPE + 1])
-        else:
-            server_msg = "NO TRAINING CENTER AT CURRENT LOCATION"
-        server_msg = server_msg.encode()
-    
-    elif request_type == "INFO":
-        loc = table.getLoc(player._Xcoord, player._Ycoord)
-        server_msg = table._grid[loc].display()
-        server_msg = server_msg.encode()
-    
-    elif request_type == "ATTACK":
-        loc = table.getLoc(player._Xcoord, player._Ycoord)
-        if len(msg_request) == 2:
-            server_msg = "Select your target:\n"
-            check = False
-            for key in active_users:
-                p2 = player_characters[active_users[key]]
-                x = p2._Xcoord
-                y = p2._Ycoord
-                loc2 = table.getLoc(x, y)
-
-                if loc2 == loc:
-                    server_msg += str(key) + "\n"
-                    check = True
-
-            if not check:
-                server_msg = ALONE_MSG
-
-        else:
-            target = msg_request[TYPE + 1].strip()
-            target = active_users[target]
-            if target in player_characters:
-                p2 = player_characters[target]
-                x = p2._Xcoord
-                y = p2._Ycoord
-                loc2 = table.getLoc(x, y)
-                if loc2 == loc:
-                    server_msg = player.Attack(p2)
-            
-            else:
-                server_msg = INVALID_TARGET
-        server_msg = server_msg.encode()
-
-    else:
-        server_msg = invalid_msg(msg_request)
-
-    server_sock.sendto(server_msg, client_addr)
-server_sock.close()

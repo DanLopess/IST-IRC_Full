@@ -1,24 +1,25 @@
-#------------------------------------------------------------------------------------------------------------------------------------------------------#
-#---    ScoreServer.py
-#---    Author: Duarte Matias
-#---    Last Chnage: 08/04/2019 21:10
-#------------------------------------------------------------------------------------------------------------------------------------------------------#
-
 import threading
 import socket
 import signal
+from server_module import *
 
+# **************************************************************************************
+#
+#                             IRC PROJECT - SCORE SERVER FUNCTIONS
+#    AUTHORS - ALEXANDRE MOTA 90585, DANIEL LOPES 90590, DUARTE MATIAS 90596
+# 
+# **************************************************************************************
 
 #-- FUNCTIONS
-#- Handles interruptions to close the socket
-def sigHandler(signum, frame):
-    servSock.close()
 
 #- Returns players' stats
 def getStats(arg):
     unparsed_stats = []
+    rw_players.acquire_read() # many threads can read, if none is writting
     with open(PLAYERS, 'r') as f:
         unparsed_stats = f.readlines()
+    rw_players.release_read()
+
     if unparsed_stats == []:
         return ("NOK", "No players to show\n")
 
@@ -43,8 +44,11 @@ def getStats(arg):
         
 #- Returns the logs
 def getLog(arg):
+    rw_logs.acquire_read()
     with open(LOGS, 'r') as log:
         unparsed_log = log.readlines()
+    rw_logs.release_read()
+
     if unparsed_log == []:
         return ("NOK", "Nothing happened yet\n")
         
@@ -61,8 +65,10 @@ def getLog(arg):
 
 #- Returns the combat scores
 def getCombatScore(arg):
+    rw_combats.acquire_read()
     with open(COMBAT, 'r') as cmbt:
         unparsed_cmbt = cmbt.readlines()
+    rw_combats.release_read()
     parsed_cmbt = list(map(lambda x: x.split("#"), filter(lambda x: "!--" not in x, unparsed_cmbt)))
     pl_info = list(filter(lambda x: arg[1] == x[0], parsed_cmbt))
     if pl_info == []:
@@ -74,6 +80,7 @@ def getCombatScore(arg):
 #- Returns the map
 def getMap(arg):
     result = []
+    rw_map.acquire_read()
     with open(MAP, 'r') as mp:
         positions = mp.readlines()
         positions = list(map(lambda x: str(x).split("-"), positions))
@@ -81,40 +88,15 @@ def getMap(arg):
             content = i[1].split(";")
             result += [" - ".join([i[0], content[int(arg[1])-1]])]
         return ("OK", "\n".join(result))
+    rw_map.release_read()
 
 #- Formats the answer
 def craftAnswer(ans, argCode):
         return ":".join([ans[0], ANSWER_CODES[argCode], ans[1]])
 
 #- Handles every request
-def handleRequest(client):
-    e_msg = client.recv(BUFFER)
-    msg = e_msg.decode()
-    args = msg.split(":")
-    result = craftAnswer(HANDLER_FUNC[args[0]](args), args[0])
-    e_res = result.encode()
-    client.send(e_res)
-    client.close()
-
-
-#-- GLOBAL VARIABLES
-#- SOCKETS
-BUFFER = 1024
-PORT = 57843
-
-#- FILES
-LOGS = "logs1.info"
-MAP = "map.save"
-PLAYERS = "stats1.info"
-COMBAT = "cmbt1.info"
-
-#- MESSAGE CODES
-ANSWER_CODES = {
-    'GET_STATS': "1",
-    'GET_LOG': "2",
-    'GET_COMBAT_SCORE': "3",
-    'GET_MAP': "4"
-}
+def handleRequest(args):
+    return craftAnswer(HANDLER_FUNC[args[0]](args), args[0])
 
 #- HANDLER FUNCTION DICTIONARY
 HANDLER_FUNC = {
@@ -123,15 +105,3 @@ HANDLER_FUNC = {
     'GET_COMBAT_SCORE' : getCombatScore,
     'GET_MAP' : getMap
 }
-
-
-signal.signal(signal.SIGINT, sigHandler)
-servSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-servSock.bind(('', PORT))
-servSock.listen(5)
-
-while True:
-    (client, addr) = servSock.accept()
-    th = threading.Thread(target=handleRequest, args= (client,), )
-    th.start()
-

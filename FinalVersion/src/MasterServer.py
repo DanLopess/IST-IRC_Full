@@ -8,14 +8,12 @@ import fileinput
 import signal
 from server_module import *
 
+
 # **************************************************************************************
 #
-#                         IRC PROJECT - GAME-MASTER SERVER
-#                             AUTHOR - DANIEL LOPES 90590
-#
-#           NOTE: ALL DEFINITIONS AND MESSAGES TYPES ARE IN SERVER_MODULE (import)
-#
-# Project source files: server.py, client.py, server_modules.py
+#                             IRC PROJECT - MASTER SERVER FUNCTIONS
+#    AUTHORS - ALEXANDRE MOTA 90585, DANIEL LOPES 90590, DUARTE MATIAS 90596
+# 
 # **************************************************************************************
 
 # ******************** generic functions ********************
@@ -60,7 +58,7 @@ def replace_data (filename, oldline, newline):
     finally:
         rw.release_write()
 
-def execute_command(message):
+def handleRequest(message):
     """
     Function that executes all actions based on command input\n
         inputs: message - command given\n

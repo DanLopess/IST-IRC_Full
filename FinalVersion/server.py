@@ -6,7 +6,11 @@ import threading
 import random
 import fileinput
 import signal
+sys.path.insert(0, 'src/')
 from server_module import *
+from PlayerServer import handleRequest
+from ScoreServer import handleRequest
+from MasterServer import handleRequest
 
 # **************************************************************************************
 #
@@ -15,16 +19,14 @@ from server_module import *
 #
 #           NOTE: ALL DEFINITIONS AND MESSAGES TYPES ARE IN SERVER_MODULE (import)
 #
-# Project source files: TODO
+# Project source files: server.py , src/server_module.py , src/ScoreServer.py, src/MasterServer.py
+# src/PlayerServer.py, clients/master.py, clients/score.py, clients/player.py
 # **************************************************************************************
 
-
-# TODO
-# create 3 functions: execute command master, score,player
-# each client is stored in a given array. 
-# if the message received is from one of the clients, checks if the client exists on the array
-# and if so, execute command specific to the type of client
-
+# ************** socket communication parameters ******************
+bind_ip = '127.0.0.1'
+bind_port = 12345
+MSG_SIZE = 1024
 
 # ******************** generic functions ********************
 def signal_handler(sig, frame):
@@ -35,30 +37,48 @@ def signal_handler(sig, frame):
     sys.exit(0)  # if multiple threads, must receive command twice
 
 def handle_client_connection(client_socket, address):
-    # TODO
-    # in this function, check what type is a client from and executes the command correspondent to that client
-    logged = 0  # variable to check if client has already logged in
-    while True:
-        msg_from_client = client_socket.recv(MSG_SIZE)
-        request = msg_from_client.decode()
+    msg_from_client = client_socket.recv(MSG_SIZE)
+    request = msg_from_client.decode()
+    message = request.split(':')
+    type = 0
 
-        print('Received {} from {} , {}'.format(
-            request, address[IP], address[PORT]))
+    if (len(message) > 1 and message[COMMAND] == LOG):
+        if (message[COMMAND+1] == MSTR):
+            type = 1 # type 1 = master
+            active_users.append(client_sock)
+            msg_to_client = OK + LOG_OK
+        elif (message[COMMAND+1] == SCR):
+            type = 2 # type 2 = score
+            active_users.append(client_sock)
+            msg_to_client = OK + LOG_OK
+        elif (message[COMMAND+1] == PLR):
+            type = 3 # type 3 = player
+            msg_to_client = OK + LOG_OK
+            active_users.append(client_sock)
+        else: 
+            msg_to_client = NOK + INV_MSG
+        
+        client_socket.send(msg_to_client.encode())
 
-        # Splits input message by its separation punctuation (:)
-        message = request.split(":")
+        #after type assignment, enters loop
+        while True:
+            msg_from_client = client_socket.recv(MSG_SIZE)
+            request = msg_from_client.decode()
 
-        if (len(message) == 1 and message[COMMAND] == LOG):  # LOGIN
-            if (logged == 0):
-                logged = 1
-                msg_to_client = OK + LOG_OK
-            elif (logged == 1):
-                msg_to_client = NOK + LOG_NOK
-        elif (len(message) == 1 and message[COMMAND] == LOGOUT):  # LOGOUT
-            break
-        else:
-            msg_to_client = execute_command(message, type)
+            print('Received {} from {} , {}'.format(
+                request, address[IP], address[PORT]))
 
+            # Splits input message by its separation punctuation (:)
+            message = request.split(":")
+
+            if (len(message) == 1 and message[COMMAND] == LOGOUT):  # LOGOUT
+                break
+            else:
+                msg_to_client = execute_command(message, type, address)
+
+            client_socket.send(msg_to_client.encode())
+    else:
+        msg_to_client = NOK + LOG_NOK
         client_socket.send(msg_to_client.encode())
 
     # end of connection
@@ -66,63 +86,13 @@ def handle_client_connection(client_socket, address):
     active_users.remove(client_socket)
     threads.remove(threading.current_thread())
 
-def generate_save():
-    # creates game map
-    if not os.path.exists(MAP):
-        with open(MAP, "w") as fn:
-            for i in range(0, 5):
-                for f in range(0, 5):
-                    fn.write(
-                        str((i, f))+" ; PLAYERS: NULL; FOOD: 0; TRAP: False; CENTER: False;\n")
-
-def find_data(filename, data):
-    """
-    This function searches for the correspondent line of either a specific coordinate or player (data) \n
-        inputs: filename, data - can be either player_name or coordinates, filename - is either map or players\n
-        returns: string
-    """
-    rw.acquire_read()  # many threads can read, if none is writting
-    try:
-        with open(filename, "r") as f:
-            for line in f:
-                found_data = line.find(str(data))
-                if (found_data != -1):
-                    return line
-        return NULL
-    finally:
-        rw.release_read()
-
-def replace_data(filename, oldline, newline):
-    """
-    This function replaces an old line of a specific file with a new one \n
-        inputs: filename, oldline - contais the line to be replaced, newline - replacing line\n
-        returns: none
-    """
-    rw.acquire_write()  # only one thread a time can write to file
-    try:
-        if (oldline != NULL):
-            with fileinput.FileInput(filename, inplace=True, backup='.bak') as file:
-                for line in file:
-                    print(line.replace(oldline, newline), end='')
-                    # replaces data in a given file
-        else:
-            if filename == PLAY and not os.path.exists(PLAY):
-                with open(filename, "w") as f:
-                    f.write(newline)  # adds new data
-            else:
-                with open(filename, "a+") as f:
-                    #f.write('\n')
-                    f.write(newline)  # adds new data
-    finally:
-        rw.release_write()
-
-def execute_command(message, type):
-    pass
-# ******************** master functions ********************
-
-# ******************** player functions ********************
-
-# ******************** score functions ********************
+def execute_command(message, type, client_addr):
+    if (type == 1):
+        return MasterServer.handleRequest(message)
+    elif (type == 2):
+        return ScoreServer.handleRequest(message)
+    elif (type == 3):
+        return PlayerServer.handleRequest(message, client_addr)
 
 # ************************* main ****************************
 #sockets initiation
@@ -132,15 +102,11 @@ server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server.bind((bind_ip, bind_port))
 server.listen(5)  # max backlog of connections
 
-active_users = []
-masters = {}
-players = {}
-scores = {}
+active_users = [] # stores all users
 threads = []
 
 # receive and handle sigint (ctrl+c)
 signal.signal(signal.SIGINT, signal_handler)
-rw = ReadWriteLock()  # lock for one writer and many readers of a file
 generate_save()  # creates required files if no save file existant
 
 while True:
