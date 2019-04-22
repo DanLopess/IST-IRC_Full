@@ -1,4 +1,5 @@
 import sys
+sys.path.insert(0, 'src/')
 import os
 import time
 import socket
@@ -6,11 +7,10 @@ import threading
 import random
 import fileinput
 import signal
-sys.path.insert(0, 'src/')
 from server_module import *
-from PlayerServer import handleRequest
-from ScoreServer import handleRequest
-from MasterServer import handleRequest
+import PlayerServer
+import ScoreServer
+import MasterServer
 
 # **************************************************************************************
 #
@@ -24,8 +24,8 @@ from MasterServer import handleRequest
 # **************************************************************************************
 
 # ************** socket communication parameters ******************
-bind_ip = '127.0.0.1'
-bind_port = 12345
+ip = '127.0.0.1'
+port = 12345
 MSG_SIZE = 1024
 
 # ******************** generic functions ********************
@@ -74,7 +74,7 @@ def handle_client_connection(client_socket, address):
             if (len(message) == 1 and message[COMMAND] == LOGOUT):  # LOGOUT
                 break
             else:
-                msg_to_client = execute_command(message, type, address)
+                msg_to_client = execute_command(message, type, address, active_users)
 
             client_socket.send(msg_to_client.encode())
     else:
@@ -92,12 +92,11 @@ def generate_save():
         with open(MAP, "w") as fn:
             for i in range(0, 5):
                 for f in range(0, 5):
-                    fn.write(
-                        str((i, f))+" ; PLAYERS: NULL; FOOD: 0; TRAP: False; CENTER: False;\n")
+                    fn.write(str((i,f))+" ;NULL;0;False;False;\n")
 
-def execute_command(message, type, client_addr):
+def execute_command(message, type, client_addr, active_users):
     if (type == 1):
-        return MasterServer.handleRequest(message)
+        return MasterServer.handleRequest(message, active_users)
     elif (type == 2):
         return ScoreServer.handleRequest(message)
     elif (type == 3):
@@ -116,10 +115,12 @@ threads = []
 
 # receive and handle sigint (ctrl+c)
 signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGALRM, alarm_handler)
 generate_save()  # creates required files if no save file existant
 
 while True:
     client_sock, address = server.accept()
+    signal.alarm(30)
     active_users.append(client_sock)
     print('Accepted connection from {}:{}'.format(address[IP], address[PORT]))
     client_handler = threading.Thread(

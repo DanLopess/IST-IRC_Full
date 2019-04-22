@@ -1,0 +1,10 @@
+TODO:
+
+- mensagens especificas para cada jogador, apos ataque
+- acabar practice, trap e add
+- sempre q andar, adicionar essa info no ficheiro
+- qnd ataca, verificar se player a atacar existe
+- implementar oq acontece qnd player com mesmo nome e adicionado (player ja existe)
+- verificar se aumento de energia a cada 30s funciona
+- implementar morte do player
+- server module implements the trapping and training and eating... but calls game master function to write to file

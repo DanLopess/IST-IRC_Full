@@ -26,7 +26,7 @@ client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_sock.connect((TCP_IP, TCP_PORT))
 
 #Tries to login
-client_msg = IN[:-1].encode()
+client_msg = IN.strip('\n').encode()
 client_sock.send(client_msg)
 
 # select either for socket or stdin inputs

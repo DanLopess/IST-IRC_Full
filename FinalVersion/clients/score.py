@@ -17,6 +17,17 @@ TCP_IP = 'localhost'
 TCP_PORT = 12345
 BUFFER_SIZE = 4096
 
+STATS_TYPES = {
+    1 : 'Atk',
+    2 : 'Def',
+    3 : 'Exp',
+    4 : 'Energy',
+    5 : 'Combat',
+    6 : 'Won',
+    7 : 'Lost',
+    8 : 
+}
+
 # create an ipv4 (AF_INET) socket object using the tcp protocol (SOCK_STREAM)
 client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -25,7 +36,7 @@ client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_sock.connect((TCP_IP, TCP_PORT))
 
 #Tries to login
-client_msg = IN[:-1].encode()
+client_msg = IN.strip('\n').encode()
 client_sock.send(client_msg)
 
 # select either for socket or stdin inputs
@@ -43,7 +54,7 @@ def handleRequest(msg):
         full_msg += rcv_msg
 
     args = full_msg.split(":")
-    print(args[2])    
+    prettyPrint(args, msg)    
     client_sock.close()
 
 def craftCommand():
@@ -93,7 +104,58 @@ def craftCommand():
     except EOFError:
             print("No input given")
             return ""   
-    
+
+
+def prettyPrint(args, msg):
+    msg_lst = msg.split(":")
+    print('Success' if args[0] == 'OK' else 'Error')
+    if (args[1] == '1'): #Stats
+        if msg_lst[1] == '1':
+            print('Player > Attack:')
+        elif msg_lst[1] == '2':
+            print('Player > Defense:')
+        elif msg_lst[1] == '3':
+            print('Player > Energy:')
+        elif msg_lst[1] == '4':
+            print('Player > Experience:')
+        elif msg_lst[1] == '5':
+            print('Player > Combat Score:')
+        elif msg_lst[1] == '6':
+            print('Player > Stats Sum:')
+        
+        print(args[2])
+        
+    elif(args[1] == '2'): #Log
+        print('Log:')
+        print(args[2])
+
+    elif(args[1] == '3'): #Combat Score
+        print('Combat Scores:')
+        print(args[2])
+
+    elif(args[1] == '4'): #Map
+        print('Map:\n')
+        mp = args[2].split("\n")
+        coords = list(map(lambda x: x.split(" - "), mp))
+        if(msg[2] in ('3', '4')):
+            print('  1 | 2 | 3 | 4 | 5 \n--------------------\n')
+            i = 0
+            while True:
+                if(i > 4): break
+                print('1 ' + "T" if coords[i][1] == 'True' else " " + " | " "T" if coords[i + 5][1] == 'True' else " " + " | " "T" if coords[i + 10][1] == 'True' else " " + " | " "T" if coords[i + 15][1] == 'True' else " " + " | " "T" if coords[i + 20][1] == 'True' else " ")
+                print('--------------------')
+                i += 1
+        
+        else:
+            i = 0
+            while True:
+                if(i > 4): break
+                print('1 ' + coords[i][1] + ' | ' + coords[i + 5][1] + ' | ' + coords[i + 10][1] + ' | ' + coords[i + 15][1] + coords[i + 20][1] + '\n')
+                i += 1
+            
+
+
+
 
 while True:
     msg = craftCommand()

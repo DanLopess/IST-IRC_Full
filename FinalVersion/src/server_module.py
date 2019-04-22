@@ -1,6 +1,7 @@
 import threading
-
-
+import random
+from MasterServer import attack_player
+from PlayerServer import *
 # **************************************************************************************
 #
 #                             IRC PROJECT - SERVER MODULE
@@ -20,17 +21,27 @@ IP = 0  # for identifying the ip address in address vector
 PORT = 1  # for identifying the port in address vector
 PLAY = "saves/players.save"
 MAP = "saves/map.save"
-TRP = "TRAP"
-FOO = "FOOD"
-CTR = "CENTER"
 MSTR = "MASTER"
 PLR = "PLAYER"
 SCR = "SCORE"
-
+# map.save :
+COORDS = 0
+PLAYERS = 1
+FOOD = 2
+TRAPS = 3
+CENTERS = 4
+# players.save :
+ATTACK = 1
+DEF = 2
+EXP = 3
+ENRGY = 4
+WON = 5
+LOST = 6
+WALKED = 7
+TRAPPED = 8
+EATEN = 9
+TRAINED = 10
 # ***************** score specific constants *****************
-LOGS = "logs1.info"
-PLAYERS = "stats1.info"
-COMBAT = "cmbt1.info"
 #- MESSAGE CODES
 ANSWER_CODES = {
     'GET_STATS': "1",
@@ -41,8 +52,8 @@ ANSWER_CODES = {
 
 #****************** player specific constants ******************
 #message info
-TYPE = 1
-USER_ID = 2
+TYPE = 0
+USER_ID = 1
 
 #return sub-codes
 REG_OK      = 'client successfully registered'
@@ -56,6 +67,12 @@ NO_FOOD     = 'no food at present location'
 ALONE_MSG   = 'no enemies at current location'
 INVALID_TARGET = 'no such player at present location'
 
+#tile arguments
+PLAYERS = 0
+FOOD = 1
+TRAP = 2
+CENTER = 3
+
 #player client----------------------------------------------------------------------------------------------------------------------------------------------------
 UP = (0, 1)
 DOWN = (0, -1)
@@ -67,59 +84,25 @@ ROWS = 5
 COLUMNS = 5
 
 #***************** master specific constants ******************
+TRP = "T"
+FOO = "F"
+CTR = "C"
 
-#location of certain strings in save files 
-#ex: in map lines structure, when split, players names will be at index 1
-
-# map.save :
-PLAYERS = 1
-FOOD = 2
-# players.save :
-ATTACK = 1
-DEF = 2
-EXP = 3
-ENRGY = 4
-COORDINATES = 5
-WON = 6
-LOST = 7
-# when splitting "FOOD: x" (example) , x is always at same index 1
-VALUE_INDEX = 1
-# note: if some indexes were not defined, that means they're not used, 
-# i.e., there's no need to access the string via index
-
-# ********************** possible messages ************************
+# possible messages 
 LOG = 'LOGIN'
 PLACE = 'PLACE'
-ADD_PLAYER = 'ADDP'
-SHOW_LOC = 'SHOW_LOCATION'
-ATT = 'ATTACK'
-EAT = 'EAT'
-PRACT = 'PRACTICE'
 LOGOUT = 'LOGOUT'  
 
-# ************************** return codes **************************
+# return codes
 OK = 'OK: '
 NOK = 'NOK: '
 
-#************************ return sub-codes *************************
+# return sub-codes
 LOG_OK = ' login successful'
-PLACE_OK = ' placed successfully'
-LOCATION_OK = 'location has' 
-ATT_OK = ' attacked successfully'
-EAT_OK = ' ate successfully'
-PRACT_OK = ' practiced successfully'
-TRAP_OK = ' fell into trap'
-ADD_OK = ' player added successfully' 
+PLACE_OK = ' placed successfully' 
 
 LOG_NOK = ' failed to login'
 PLACE_NOK = ' could not be placed'
-ATT_NOK = ' attack failed'
-EAT_NOK = ' could not eat'
-PRACT_NOK = ' could not practice'
-TRAP_NOK = ' could not be trapped'
-INV_MSG = ' invalid message type'
-INV_PLAYER = ' no such player'
-ADD_NOK = ' failed to add player'
 
 # **************************** classes ******************************
 class ReadWriteLock:
@@ -165,19 +148,26 @@ class ReadWriteLock:
 # global locks
 rw_map = ReadWriteLock()  # lock for one writer and many readers of a file
 rw_players = ReadWriteLock()  # lock for one writer and many readers of a file
-rw_logs = ReadWriteLock()  # lock for one writer and many readers of a file
-rw_combats = ReadWriteLock()  # lock for one writer and many readers of a file
 usr_lock = threading.Lock() # lock for user actions
 
 #--------------------------------------------------------------------------------------------------------------------------------------
 class Tile:
-    def __init__(self, x, y, trap, food, tc):
+    def __init__(self, x, y, trap, food, tc, players):
         self._x = x
         self._y = y
         self._trap = trap
         self._food = food
         self._tCenter = tc
-        self._players = {} #key = player's name; value = player object reference
+        self._players = players #key = player's name; value = player object reference
+
+    def placeT(self):
+        self._trap = True
+
+    def placeF(self):
+        self._food += 1
+
+    def placeTC(self):
+        self._tCenter = True
 
     def hasTrap(self):
         return self._trap
@@ -188,13 +178,18 @@ class Tile:
     def getFood(self):
         return self._food
     
+    def rmFood(self):
+        self._food -= 1
+
     def display(self):
-        return "({},{}) ; FOOD: {} ; TRAP: {} ; CENTER: {} ;".format(self._x, self._y, self._food, self._trap, self._tCenter)
+        return "({},{});{};{};{};{};".format(self._x, self._y, ','.join([x for x in self._players]) ,self._food, self._trap, self._tCenter)
 #--------------------------------------------------------------------------------------------------------------------------------------
 class Game_map:
     def __init__(self, file):
         self._grid = []
         self._playerCount = 0
+        self._traps = 0
+        self._tc = 0
 
         with open(file) as f:
             while True:
@@ -202,28 +197,39 @@ class Game_map:
 
                 if line == "":
                     break
-                else:
-                    c = line.split("-")
-                    coords = list(c[0])
-                    
-                    aux = c[1].split(";")
+                else: 
+                    trap = False
+                    food = 0
+                    Center = False                 
+                    aux = line.split(";")
+                    coords = list(aux[0])
 
-                    for aux2 in aux:
-                        aux3 = aux2.split(":")
-                        
-                        if aux3[0] == "PLAYERS":
-                            continue
-                        
-                        elif aux3[0] == "FOOD":
-                            food = int(aux3[1])
+                    iterCount = 0
+                    for i in aux[1:]:
+                         
+                        if iterCount == PLAYERS:
+                            players = {}
+                            k = i.split(',')
+                            for j in k:
+                                if playerExists(str(j)):
+                                    player[str(j)] = getPlayer(k)
 
-                        elif aux3[0] == "TRAP":
-                            trap = (aux3[1] == "True")
+                        elif iterCount == FOOD:
+                            food = int(i)
+                                
+                        elif iterCount == TRAP:
+                            trap = (i == "True")
+                            if trap:
+                                self._traps +=1
                         
-                        elif aux3[0] == "CENTER":
-                             Center = (aux3[1] == "True")
+                        elif iterCount == CENTER:
+                             Center = (i == "True")
+                             if Center:
+                                 self._tc += 1
 
-                self._grid += [Tile(int(coords[1]), int(coords[3]), trap, food, Center)]
+                        iterCount += 1
+                    self._grid += [Tile(int(coords[1]), int(coords[3]), trap, food, Center, players)]
+
 
     def isTrap(self, number):
         return self._grid[number].hasTrap()
@@ -237,10 +243,35 @@ class Game_map:
     def updatePC(self):
         self._playerCount += 1
 
-    def display(self):
-        for i in self._grid:
-            print(i.display())
+    def placeT(self, number):
+        self._grid[number].placeT()
+
+    def placeF(self, number):
+        self._grid[number].placeF()
+
+    def placeTC(self, number):
+        self._grid[number].placeTC()
+
+    def getTraps(self):
+        return self._traps
+
+    def getTC(self):
+        return self._tc
+
+    def getFood(self, number):
+        return self._grid[number].getFood()
     
+    def rmFood(self, number):
+        return self._grid[number].rmFood()
+
+    def display(self):
+        table = []
+        for i in self._grid:
+            table.append(i.display())
+        return '\n'.join([x for x in table])
+
+table = Game_map("saves/map.save")
+
 #class containing the data relative to each payer------------------------------------------------------------------------------------------
 class Player:
 
@@ -254,6 +285,12 @@ class Player:
         self._experience = 1
         self._attrPoints = 50
         self._energy = 10
+        self._distance = 0
+        self._trapped = 0
+        self._eaten = 0
+        self._trained = 0
+        self._wins = 0
+        self._losses = 0
 
 
     def Move(self, direction): #(str direction)
@@ -272,7 +309,7 @@ class Player:
 
         self._Ycoord += dir[1]
         self._Xcoord += dir[0]
-
+        self._distance += 1
         return "character moved to ({}, {}) succesfully".format(self._Xcoord, self._Ycoord)
 
     def Train(self, attr):
@@ -287,42 +324,70 @@ class Player:
             self._energy -= 1
         else:
             return "Invalid attribute"
-        return msg
 
-    def Die(self):
-        return #TODO
+        self._trained += 1
+        return msg
 
     def Trapped(self):
         self._energy -= 1
         if self._energy == 0:
             self.Die()
         self._experience -= 1
+        self._traped += 1
 
     def Eat(self):
         if(self._energy < 10):
             self._energy += 1
-        return "Yummy"
+            self._eaten += 1
+            return "Yummy"
+        return "No food here still hungry"
 
     def Attack(self, target):
-        target.Die()
-        return "you killed {}".format(target._username)
+        from MasterServer import attack_player
+        attack_player(self, target)
+        return ""
 
-    def Lvlup(self, attack = 0, defense = 0):
+    def Lvlup(self, attack = 0, defense = 0, energy = 0):
         if attack + defense <= self._attrPoints:
             self._attack += attack
             self._defense += defense
+            self._energy += energy
             self._attrPoints -= attack + defense
             return True
         else:
             return False
 
-    def View_world(self):
-        return #TODO
+    def Get_stats_terminal(self):
+        return "{}:\nATTACK = {}\nDEFENSE = {}\n ENERGY = {}\n EXPERIENCE = {}\n".format(self._name, self._attack, 
+            self._defense, self._energy, self._experience)
+
+    def Get_stats_file(self):
+        return ("{};{};{};{};{};{}};{};{};{};{};"
+        .format(self._name, self._attack, self._defense, self._experience, self._energy,
+        self._wins, self._losses, self._distance, self.trapped, self._eaten))
 
     def GetPlayerLocation(self):
         return "PLAYER AT ({}, {})".format(self._Xcoord, self._Ycoord)
     
     def GetAddr(self):
         return self._addr
+
+    def Victory(self):
+        self._experience += 1
+        self._wins += 1
+
+    def Defeat(self):
+        self._losses += 1
+        self._energy -= 1
+
+    def GetAttk(self):
+        return self._attack
+    def GetEnrgy(self):
+        return self._energy
+    def GetExp(self):
+        return self._experience
+    
+    def GetCoords(self):
+        return (self._Xcoord,self._Ycoord)
 
 #player client END------------------------------------------------------------------------------------------------------------------------------------------------
