@@ -189,7 +189,7 @@ class Tile:
         return self._food
     
     def display(self):
-        return "({},{})-FOOD:{};TRAP:{};CENTER:{};".format(self._x, self._y, self._food, self._trap, self._tCenter)
+        return "({},{}) ; FOOD: {} ; TRAP: {} ; CENTER: {} ;".format(self._x, self._y, self._food, self._trap, self._tCenter)
 #--------------------------------------------------------------------------------------------------------------------------------------
 class Game_map:
     def __init__(self, file):
@@ -254,7 +254,7 @@ class Player:
         self._experience = 1
         self._attrPoints = 50
         self._energy = 10
-        
+
 
     def Move(self, direction): #(str direction)
         direction = direction.upper()
