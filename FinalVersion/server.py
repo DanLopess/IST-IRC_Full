@@ -86,6 +86,15 @@ def handle_client_connection(client_socket, address):
     active_users.remove(client_socket)
     threads.remove(threading.current_thread())
 
+def generate_save():
+    # creates game map
+    if not os.path.exists(MAP):
+        with open(MAP, "w") as fn:
+            for i in range(0, 5):
+                for f in range(0, 5):
+                    fn.write(
+                        str((i, f))+" ; PLAYERS: NULL; FOOD: 0; TRAP: False; CENTER: False;\n")
+
 def execute_command(message, type, client_addr):
     if (type == 1):
         return MasterServer.handleRequest(message)
