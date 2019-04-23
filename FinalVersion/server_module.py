@@ -82,7 +82,7 @@ COLUMNS = 5
 #***************** master specific constants ******************
 TRP = "T"
 FOO = "F"
-CTR = "C"
+CTR = "TC"
 
 # possible messages 
 LOG = 'LOGIN'

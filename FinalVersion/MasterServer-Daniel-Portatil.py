@@ -26,7 +26,7 @@ class Player:
         self._Ycoord = random.randint(0,4)
         self._attack = 0
         self._defense = 0
-        self._experience = 10
+        self._experience = 0
         self._attrPoints = 50
         self._energy = 10
         self._distance = 0
@@ -51,12 +51,12 @@ class Player:
         else:
             return "Not a valid movement option"
 
-        table.rmPlayer(getLoc(self._Xcoord,self._Ycoord))
+        table.rmPlayer(self._username, table.getLoc(self._Xcoord,self._Ycoord))
         self._Ycoord += dir[1]
         self._Xcoord += dir[0]
         self._distance += 1
         player_move(self)
-        table.addPlayer(getLoc(self._Xcoord,self._Ycoord))
+        table.addPlayer(self._username, table.getLoc(self._Xcoord,self._Ycoord))
         return "you moved to ({}, {}) succesfully ".format(self._Xcoord, self._Ycoord)
 
     def Train(self, attr):
@@ -106,7 +106,7 @@ class Player:
         
 
     def Attack(self, target):
-        return attack_player(self, target)
+        return attack_player(self._username, target._username)
 
     def Lvlup(self, attack = 0, defense = 0, energy = 0):
         if attack + defense <= self._attrPoints:
@@ -119,16 +119,17 @@ class Player:
             return False
 
     def changeXp(self, quantity):
-        self._experience += quantity
+        if (self._experience < 10):
+            self._experience += quantity
 
     def Get_stats_terminal(self):
         return "{}:\nATTACK = {}\nDEFENSE = {}\n ENERGY = {}\n EXPERIENCE = {}\n".format(self._name, self._attack, 
             self._defense, self._energy, self._experience)
 
     def Get_stats_file(self):
-        return ("{};{};{};{};{};{}};{};{};{};{};"
-        .format(self._name, self._attack, self._defense, self._experience, self._energy,
-        self._wins, self._losses, self._distance, self.trapped, self._eaten))
+        return ("{};{};{};{};{};{};{};{};{};{};\n"
+        .format(self._username, self._attack, self._defense, self._experience, self._energy,
+        self._wins, self._losses, self._distance, self._trapped, self._eaten))
 
     def GetPlayerLocation(self):
         return "PLAYER AT ({}, {})".format(self._Xcoord, self._Ycoord)
@@ -156,6 +157,10 @@ class Player:
         return (self._Xcoord,self._Ycoord)
     def getUserName(self):
         return self._username  
+    def getX(self):
+        return self._Xcoord
+    def getY(self):
+        return self._Ycoord
 #--------------------------------------------------------------------------------------------------------------------------------------
 class Tile:
     def __init__(self, x, y, trap, food, tc, players):
@@ -167,7 +172,12 @@ class Tile:
         self._players = players #key = player's name; value = player object reference
 
     def addPlayer(self,playerName):
-        self._players.append(playerName)
+        if ("NULL" in self._players):
+            self._players = []
+            self._players.append(playerName)
+        else:
+            self._players.append(playerName)
+
 
     def rmPlayer(self, playerName):
         self._players.remove(playerName)
@@ -220,6 +230,7 @@ class Game_map:
 
                     iterCount = 1
                     for i in aux[1:]:
+                        
                         if iterCount == PLAYERS:
                             k = i.split(',')
                             for j in k:
@@ -238,23 +249,22 @@ class Game_map:
                                  self._tc += 1
                         iterCount += 1
                         
-                        self._grid += [Tile(int(coords[1]), int(coords[3]), trap, food, center, players)]
-                        print(Tile(int(coords[1]), int(coords[3]), trap, food, center, players).display())
+                    self._grid += [Tile(int(coords[1]), int(coords[3]), trap, food, center, players)]
 
     def isTrap(self, number):
         return self._grid[number].hasTrap()
 
-    def addPlayer(self, number):
-        self._grid[number].addPlayer()
+    def addPlayer(self, playerName, number):
+        self._grid[number].addPlayer(playerName)
 
-    def rmPlayer(self, number):
-        self._grid[number].rmPlayer()
+    def rmPlayer(self, playerName, number):
+        self._grid[number].rmPlayer(playerName)
 
     def isTC(self, number):
         return self._grid[number].hasTC()
 
     def getLoc(self, x, y):
-        return x + y * COLUMNS
+        return x*COLUMNS + y 
 
     def updatePC(self):
         self._playerCount += 1
@@ -321,7 +331,7 @@ def register_client(msg_request, addr, active_users_ply):
         active_users_ply[name] = addr
         newPlayer = Player(name, addr)
         player_characters[addr] = newPlayer
-        table.addPlayer(newPlayer)
+        table.addPlayer(name, table.getLoc(newPlayer.getX(), newPlayer.getY()))
 
         newPlayer.Lvlup(int(msg_request[USER_ID + 1]), int(msg_request[USER_ID + 2]))
 
@@ -373,7 +383,7 @@ def handleRequest_P(msg_request, client_addr):
     
     elif request_type == "ATTACK":
         loc = table.getLoc(player._Xcoord, player._Ycoord)
-        if len(msg_request) == 2:
+        if len(msg_request) == 1:
             server_msg = "Select your target:\n"
             check = False
             for key in active_users_ply:
@@ -389,7 +399,7 @@ def handleRequest_P(msg_request, client_addr):
             if not check:
                 server_msg = ALONE_MSG
 
-        else:
+        elif len(msg_request) == 2:
             target = msg_request[TYPE + 1].strip()
             target = active_users_ply[target]
             if target in player_characters:
@@ -414,8 +424,17 @@ def handleRequest_P(msg_request, client_addr):
 
 # def playerLogged(playerName):
 #     return (playerName in active_users_ply) and active_users_ply[playerName] in player_characters
-#int main(int argc,char** argv) code--------------------------------------------------------------------------------------------------------------------
 
+def generate_save():
+    # creates game map
+    if os.path.exists(MAP):
+        if(os.path.getsize(MAP) == 0):
+            with open(MAP, "w") as fn:
+                for i in range(0, 5):
+                    for f in range(0, 5):
+                        fn.write("("+str(i)+","+str(f)+")"+";NULL;0;False;False;\n")
+
+generate_save()  # creates required files if no save file existant
 table = Game_map("saves/map.save")
 active_users_ply = {} #dict: key: user_name; val:user_address info: example:'maria'= ('127.0.0.1',17234)
 player_characters = {} #dict: key: addr; val: character object reference
@@ -487,7 +506,7 @@ def change_stats_player(player_name, pos, value):
     """
     player_line = find_data(PLAY, player_name)
     line = player_line.split(";")
-    line[pos] = str(value)
+    line[pos] = str(eval(line[pos]) + value)
     new_line = ";".join([x for x in line])
     replace_data(PLAY, player_line, new_line)
 
@@ -527,6 +546,7 @@ def place_item(item_type):
                 else:
                     table.placeT(locNumber)
                     write_map()
+                    break
             return OK + "TRAP" + PLACE_OK + " [position: " + str(coordinate) + "]"
         return NOK + "TRAP" + PLACE_NOK + " [there are traps everywhere]"
 
@@ -540,14 +560,15 @@ def place_item(item_type):
                 else:
                     table.placeTC(locNumber)
                     write_map()
+                    break
 
-            return OK + "TRAP" + PLACE_OK + " [position: " + coordinate + "]"
-        return NOK + "TRAP" + PLACE_NOK + " [there are traps everywhere]"
+            return OK + "TC" + PLACE_OK + " [position: " + str(coordinate) + "]"
+        return NOK + "TC" + PLACE_NOK + " [there are training centers everywhere]"
     else:
         # will not enter here
         return NULL
 
-def attack_player(attacker, attacked, active_users):
+def attack_player(attacker, attacked):
     """
     Function that decides the result of an attack command\n
         inputs: attacker - player1 name, attacked - player2 name\n
@@ -558,7 +579,7 @@ def attack_player(attacker, attacked, active_users):
     attackermsg = ''
     attackedmsg = ''
 
-    if (attacker_p.GetCoords == attacked_p.GetCoords):
+    if (attacker_p.GetCoords() == attacked_p.GetCoords()):
         if (attacker_p.GetEnrgy() == 0 or attacked_p.GetEnrgy() == 0):
             attackermsg = NOK + ATT_NOK + " [not enough energy to fight]"
             attackedmsg = attackermsg
@@ -566,7 +587,7 @@ def attack_player(attacker, attacked, active_users):
             #both attacker and attacked lose one energy
             change_stats_player(attacker, ENRGY, -1)
             change_stats_player(attacked, ENRGY, -1)
-            atacker_p.Lvlup(0,0,-1)
+            attacker_p.Lvlup(0,0,-1)
             attacked_p.Lvlup(0,0,-1)
 
             if ((attacker_p.GetAttk() + attacker_p.GetEnrgy() + attacker_p.GetExp()) /
@@ -577,8 +598,8 @@ def attack_player(attacker, attacked, active_users):
                 # attacker won and attacked lost
                 change_stats_player(attacker, WON, 1)
                 change_stats_player(attacked, LOST, 1)
-                attacker_p.victory()
-                attacked_p.defeat()
+                attacker_p.Victory()
+                attacked_p.Defeat()
                 attackermsg = "You Won the combat! Congratulations, 1 exp earned!\n"
                 attackedmsg = "You have been attacked and lost 2 energy points!\n"
             else:
@@ -588,20 +609,13 @@ def attack_player(attacker, attacked, active_users):
                 # attacker lost and attacked won
                 change_stats_player(attacked, WON, 1)
                 change_stats_player(attacker, LOST, 1)
-                attacker_p.victory()
-                attacked_p.defeat()
+                attacker_p.Victory()
+                attacked_p.Defeat()
                 attackedmsg = "You Won the combat! Congratulations, 1 exp earned!\n"
                 attackermsg = "You have been attacked and lost 2 energy points!\n"
     else:
         attackermsg = "You are not in the same location as the other player!\n"
     
-    #get attacked socket
-    if (attackedmsg != ''):
-        for i in active_users:
-            if ((i.getpeername())[0] ==  attacked_p.GetAddr()):
-                socket2 = i
-                socket2.send(attackedmsg.encode())
-
     return attackermsg
 
 def player_eat(player):
@@ -611,6 +625,7 @@ def player_eat(player):
         returns: none
     """
     change_stats_player(player.getUserName(), ENRGY, 1)
+    change_stats_player(player.getUserName(), EATEN, 1)
 
 def player_practice(player, option):
     """
@@ -620,8 +635,11 @@ def player_practice(player, option):
     """
     if (option == 1):
         change_stats_player(player.getUserName(), ATTACK, player.GetAttk())
+        change_stats_player(player.getUserName(), TRAINED, 1)
+
     elif (option == 2):
         change_stats_player(player.getUserName(), DEF, player.GetDefense())
+        change_stats_player(player.getUserName(), TRAINED, 1)
 
 def player_trap(player):
     """
@@ -633,6 +651,7 @@ def player_trap(player):
 
     player_name = player.getUserName()
     change_stats_player(player_name, ENRGY, player.GetEnrgy())
+    change_stats_player(player.getUserName(), TRAPPED, 1)
     
 def add_player(player):
     """
@@ -645,9 +664,9 @@ def add_player(player):
     defense = player.GetDefense()
     coords = player.GetCoords()
     if (player_name != NULL and att + defense <= 50):
-        player = [player_name, att, defense, 10,0,0,0,0,0]
+        playerL = player.Get_stats_file()
         player_line = find_data(PLAY, player_name)
-        replace_data(PLAY, player_line, ";".join([str(x) for x in player])+ "\n") 
+        replace_data(PLAY, player_line, playerL) 
         coordinate = "("+str(coords[0])+","+str(coords[1])+")"
         location_line = find_data(MAP, coordinate)
         line = location_line.split(";")
@@ -699,3 +718,4 @@ def player_move(player):
         #do nothing
     replace_data(MAP, location_line, new_line) 
     change_stats_player(player_name, ENRGY, player.GetEnrgy())  # reduce one energy
+    change_stats_player(player.getUserName(), WALKED, 1)

@@ -87,15 +87,6 @@ def handle_client_connection(client_socket, address):
     active_users.remove(client_socket)
     threads.remove(threading.current_thread())
 
-def generate_save():
-    # creates game map
-    if os.path.exists(MAP):
-        if(os.path.getsize(MAP) == 0):
-            with open(MAP, "w") as fn:
-                for i in range(0, 5):
-                    for f in range(0, 5):
-                        fn.write("("+str(i)+","+str(f)+")"+";NULL;0;False;False;\n")
-
 def execute_command(message, type, client_addr, active_users):
     if (type == 1):
         return MasterServer.handleRequest_M(message, active_users)
@@ -118,7 +109,6 @@ threads = []
 # receive and handle sigint (ctrl+c)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGALRM, alarm_handler)
-generate_save()  # creates required files if no save file existant
 
 while True:
     client_sock, address = server.accept()

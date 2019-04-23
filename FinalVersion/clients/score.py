@@ -13,7 +13,7 @@ import sys
 IN = "LOGIN:SCORE\n"
 OUT = "LOGOUT\n"
 
-TCP_IP = 'localhost'
+TCP_IP = '127.0.0.1'
 TCP_PORT = 12345
 BUFFER_SIZE = 4096
 
@@ -32,20 +32,20 @@ client_sock.send(client_msg)
 # select either for socket or stdin inputs
 inputs = [client_sock, sys.stdin]
 
+print(client_sock.recv(BUFFER_SIZE).decode())
+
+
 def handleRequest(msg):
     e_msg = msg.encode()
     client_sock.send(e_msg)
     full_msg = ""
-    while True:
-        rcv_e_msg = client_sock.recv(BUFFER_SIZE)
-        rcv_msg = rcv_e_msg.decode()
-        if(rcv_msg == ""):
-            break
-        full_msg += rcv_msg
+    
+    rcv_e_msg = client_sock.recv(BUFFER_SIZE)
+    rcv_msg = rcv_e_msg.decode()
+    full_msg += rcv_msg
 
     args = full_msg.split(":")
     prettyPrint(args, msg)    
-    client_sock.close()
 
 def craftCommand():
     command  = {1:"GET_STATS", 2:"GET_LOG", 3:"GET_COMBAT_SCORE", 4:"GET_MAP"}
@@ -135,16 +135,18 @@ def prettyPrint(args, msg):
             i = 0
             while True:
                 if(i > 4): break
-                print('1 ' + "T" if coords[i][1] == 'True' else " " + " | " "T" if coords[i + 5][1] == 'True' else " " + " | " "T" if coords[i + 10][1] == 'True' else " " + " | " "T" if coords[i + 15][1] == 'True' else " " + " | " "T" if coords[i + 20][1] == 'True' else " ")
+                print(str(i+1) + " T" if coords[i][1] == 'True' else " " + " | " "T" if coords[i + 5][1] == 'True' else " " + " | " "T" if coords[i + 10][1] == 'True' else " " + " | " "T" if coords[i + 15][1] == 'True' else " " + " | " "T" if coords[i + 20][1] == 'True' else " ")
                 print('--------------------')
                 i += 1
         
         else:
             i = 0
+            print('  1 | 2 | 3 | 4 | 5 \n--------------------\n')
             while True:
                 if(i > 4): break
-                print('1 ' + coords[i][1] + ' | ' + coords[i + 5][1] + ' | ' + coords[i + 10][1] + ' | ' + coords[i + 15][1] + coords[i + 20][1] + '\n')
+                print(str(i+1) + " " + coords[i][1] + ' | ' + coords[i + 5][1] + ' | ' + coords[i + 10][1] + ' | ' + coords[i + 15][1] + coords[i + 20][1] + '\n')
                 i += 1
+                print('--------------------')
         print('\n')
             
 while True:

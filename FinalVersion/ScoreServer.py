@@ -103,7 +103,7 @@ def getMap(arg):
     
 #- Formats the answer
 def craftAnswer(ans, argCode):
-        return ":".join([ans[0], ANSWER_CODES[argCode], ans[1]])
+    return ":".join([ans[0], ANSWER_CODES[argCode], ans[1]])
 
 #- Handles every request
 def handleRequest(args):
