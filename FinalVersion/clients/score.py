@@ -17,16 +17,6 @@ TCP_IP = 'localhost'
 TCP_PORT = 12345
 BUFFER_SIZE = 4096
 
-STATS_TYPES = {
-    1 : 'Atk',
-    2 : 'Def',
-    3 : 'Exp',
-    4 : 'Energy',
-    5 : 'Combat',
-    6 : 'Won',
-    7 : 'Lost',
-    8 : 
-}
 
 # create an ipv4 (AF_INET) socket object using the tcp protocol (SOCK_STREAM)
 client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -124,14 +114,17 @@ def prettyPrint(args, msg):
             print('Player > Stats Sum:')
         
         print(args[2])
+        print('\n')
         
     elif(args[1] == '2'): #Log
         print('Log:')
         print(args[2])
+        print('\n')
 
     elif(args[1] == '3'): #Combat Score
         print('Combat Scores:')
         print(args[2])
+        print('\n')
 
     elif(args[1] == '4'): #Map
         print('Map:\n')
@@ -152,18 +145,11 @@ def prettyPrint(args, msg):
                 if(i > 4): break
                 print('1 ' + coords[i][1] + ' | ' + coords[i + 5][1] + ' | ' + coords[i + 10][1] + ' | ' + coords[i + 15][1] + coords[i + 20][1] + '\n')
                 i += 1
+        print('\n')
             
-
-
-
-
 while True:
     msg = craftCommand()
     if(msg == ""):
         continue
     else:
         handleRequest(msg)
-
-
-    
-

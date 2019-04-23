@@ -52,6 +52,8 @@ while True:
       # i == sys.stdin - alguem escreveu na consola, vamos ler e enviar
       if i == sys.stdin:
           user_msg = sys.stdin.readline()
+          if (user_msg == OUT+'\n'):
+              user_msg = user_msg[:-1]
           client_msg = user_msg.encode()
           client_sock.send(client_msg)
 

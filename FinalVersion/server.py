@@ -1,5 +1,4 @@
 import sys
-sys.path.insert(0, 'src/')
 import os
 import time
 import socket
@@ -8,7 +7,6 @@ import random
 import fileinput
 import signal
 from server_module import *
-import PlayerServer
 import ScoreServer
 import MasterServer
 
@@ -19,8 +17,8 @@ import MasterServer
 #
 #           NOTE: ALL DEFINITIONS AND MESSAGES TYPES ARE IN SERVER_MODULE (import)
 #
-# Project source files: server.py , src/server_module.py , src/ScoreServer.py, src/MasterServer.py
-# src/PlayerServer.py, clients/master.py, clients/score.py, clients/player.py
+# Project source files: server.py , server_module.py , ScoreServer.py, MasterServer.py
+# clients/master.py, clients/score.py, clients/player.py
 # **************************************************************************************
 
 # ************** socket communication parameters ******************
@@ -35,6 +33,9 @@ def signal_handler(sig, frame):
     for i in threads:  # waits for all threads to finish, avoids corruption of data
         i.join()
     sys.exit(0)  # if multiple threads, must receive command twice
+
+def alarm_handler(sig, frame):
+    MasterServer.addAllXp()
 
 def handle_client_connection(client_socket, address):
     msg_from_client = client_socket.recv(MSG_SIZE)
@@ -88,26 +89,27 @@ def handle_client_connection(client_socket, address):
 
 def generate_save():
     # creates game map
-    if not os.path.exists(MAP):
-        with open(MAP, "w") as fn:
-            for i in range(0, 5):
-                for f in range(0, 5):
-                    fn.write(str((i,f))+" ;NULL;0;False;False;\n")
+    if os.path.exists(MAP):
+        if(os.path.getsize(MAP) == 0):
+            with open(MAP, "w") as fn:
+                for i in range(0, 5):
+                    for f in range(0, 5):
+                        fn.write("("+str(i)+","+str(f)+")"+";NULL;0;False;False;\n")
 
 def execute_command(message, type, client_addr, active_users):
     if (type == 1):
-        return MasterServer.handleRequest(message, active_users)
+        return MasterServer.handleRequest_M(message, active_users)
     elif (type == 2):
         return ScoreServer.handleRequest(message)
     elif (type == 3):
-        return PlayerServer.handleRequest(message, client_addr)
+        return MasterServer.handleRequest_P(message, client_addr)
 
 # ************************* main ****************************
 #sockets initiation
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # the SO_REUSEADDR flag reuses a local socket in TIME_WAIT state, without waiting for its natural timeout to expire.
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server.bind((bind_ip, bind_port))
+server.bind((ip, port))
 server.listen(5)  # max backlog of connections
 
 active_users = [] # stores all users

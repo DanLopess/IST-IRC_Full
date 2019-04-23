@@ -10,6 +10,14 @@ from server_module import *
 # 
 # **************************************************************************************
 
+#- MESSAGE CODES
+ANSWER_CODES = {
+    'GET_STATS': "1",
+    'GET_LOG': "2",
+    'GET_COMBAT_SCORE': "3",
+    'GET_MAP': "4"
+}
+
 #-- FUNCTIONS
 
 #- Returns players' stats
@@ -29,7 +37,7 @@ def getStats(arg):
     if int(arg[1]) == 6:
         for i in range(len(unparsed_stats)):
             parsed_stats += [[unparsed_stats[i][0] , int(unparsed_stats[i][1]) + int(unparsed_stats[i][2]) + int(unparsed_stats[i][3]) + int(unparsed_stats[i][4])]]
-    elif int(args[1]) == 5:
+    elif int(arg[1]) == 5:
         for i in range(len(unparsed_stats)):
             parsed_stats += [[unparsed_stats[i][0], int(unparsed_stats[i][5]) - int(unparsed_stats[i][6])]]
     else:
